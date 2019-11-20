@@ -13,7 +13,12 @@ import sheet_api
 class Seller(object):
 
     def __init__(self, name, products_list, wallet):
-
+        """
+        A class to represent the seller
+        :param name: seller name string, eg. apple
+        :param products_list: list of products sold by the seller
+        :param wallet: total money owned by the seller
+        """
         self.name = name
         # Each seller can sell multiple products, products_list is
         self.products_list = []
@@ -25,16 +30,23 @@ class Seller(object):
             for product in products_list:
                 Market.register_seller(self, product)
 
-        # metrics tracker: a list of dictionary with product as key
-        self.inventory = [{key: 1000 for key in products_list}]  # assume inventory starts with 1000 items
+        # metrics tracker:
+        # item_sold is a dictionary with each product as key, and value is number of items sold for each product
+        self.item_sold = {key: 0 for key in products_list}
+
+        # inventory is a list of dictionary with product as key and inventory number as value for each quarter
+        # assume initial inventory is 1000 items for each product. Example: [{iphone: 1000, airpods: 1000}]
+        self.inventory = [{key: 1000 for key in products_list}]
+
+        # sales, revenue, profit, expense and sentiment history start with zero for each product
         self.sales_history = [{key: 0 for key in products_list}]
         self.revenue_history = [{key: 0 for key in products_list}]
         self.profit_history = [{key: 0 for key in products_list}]
         self.expense_history = [{key: 0 for key in products_list}]
         self.sentiment_history = [{key: 0 for key in products_list}]
 
-        # total items of all products sold by seller
-        self.item_sold = 0
+        # total number of items of each product sold by seller. example: {iphone: 0, airpods: 0}
+        self.item_sold = {key: 0 for key in products_list}
 
         # qtr number
         self.qtr = 0
@@ -52,41 +64,61 @@ class Seller(object):
         self.thread.start()
 
     def loop(self):
+        """
+        tick time for seller, representing one quarter sales period
+        :return: null
+        """
         while not self.STOP:
             self.tick()
             time.sleep(tick_time)
 
     # if an item is sold, add it to the database
-    def sold(self):
+    def sold(self, product):
+        """
+        Add number of items sold when product is sold
+        :param product: product sold by the seller
+        :return: null
+        """
         self.lock.acquire()
-        self.item_sold += 1
+        self.item_sold[product] += 1
         self.lock.release()
 
-    # one timestep in the simulation world
+    # one time step in the simulation world
     def tick(self):
+        """
+        In one time step in the simulation world, do:
+        1. record sales history of number of items sold for each product
+        2. calculate the metrics for previous tick and add to tracker, like revenue, expense, profit, user sentiment
+        3. decide advertising type in next step by calling CEO function
+        :return: null
+        """
         self.lock.acquire()
-
-        # append the sales record to the history
-        self.sales_history.append(self.item_sold)
-
-        # reset the sales counter
-        self.item_sold = 0
 
         # record timestamp/quarter number
         self.qtr += 1
 
-        # Calculate the metrics for previous tick and add to tracker
-        self.revenue_history.append(self.sales_history[-1] * self.product.price)
-        self.profit_history.append(self.revenue_history[-1] - self.expense_history[-1])
+        # calculate the metrics for previous tick and add to tracker: sales, revenue and profit
+        self.sales_history.append(self.item_sold)
+        revenue = {product: sales * product.price for product, sales in self.item_sold.items()}
+        expense = self.expense_history[-1]
+        profit = {product: revenue - expense[product] for product, revenue in revenue.items() if product in expense}
+
+        # append revenue and profit record to the history
+        self.revenue_history.append(revenue)
+        self.profit_history.append(profit)
+
         self.sentiment_history.append(self.user_sentiment())
 
         # add the profit to seller's wallet
         self.wallet += self.my_profit(True)
 
-        # choose what to do for next timestep
+        # reset the sales counter
+        self.item_sold.fromkeys(self.item_sold, 0)
+
+        # choose what to do for next time step
         advert_type, scale = self.CEO()
 
-        # ANSWER a. print data to show progress
+        # print data to show progress
         print('Revenue in previous quarter:', self.my_revenue(True))
         print('Expenses in previous quarter:', self.my_expenses(True))
         print('Profit in previous quarter:', self.my_profit(True))
@@ -106,20 +138,48 @@ class Seller(object):
         # perform the actions and view the expense
         self.expense_history.append(GoogleAds.post_advertisement(self, self.product, advert_type, scale))
 
-    # calculates the total revenue. Gives the revenue in last tick if latest_only = True
     def my_revenue(self, latest_only=False):
-        revenue = self.revenue_history[-1] if latest_only else numpy.sum(self.revenue_history)
-        return revenue
+        """
+        calculate the total revenue
+        :param latest_only: give the revenue in last tick if latest_only = True, else give the total revenue
+        :return: total revenue for all products sold
+        """
+        if latest_only:
+            revenue = self.revenue_history[-1]
+            total_revenue = sum(revenue.values())
+        else:
+            total_revenue = sum(sum(revenue.values()) for revenue in self.revenue_history)
+
+        return total_revenue
 
     # calculates the total revenue. Gives the revenue in last tick if latest_only = True
     def my_expenses(self, latest_only=False):
-        bill = self.expense_history[-1] if latest_only else numpy.sum(self.expense_history)
-        return bill
+        """
+        calculate the total expense
+        :param latest_only: give the expense in last tick if latest_only = True, else give the total expense
+        :return: total expense for all products
+        """
+        if latest_only:
+            expense = self.expense_history[-1]
+            total_bill = sum(expense.values())
+        else:
+            total_bill = sum(sum(expense.values()) for expense in self.expense_history)
 
-    # calculates the total revenue. Gives the revenue in last tick if latest_only = True
+        return total_bill
+
     def my_profit(self, latest_only=False):
-        profit = self.profit_history[-1] if latest_only else numpy.sum(self.profit_history)
-        return profit
+        """
+        calculate the total profit
+        :param latest_only: give the profit in last tick if latest_only = True, else give the total profit
+        :return: total profit earned from all products sold
+        """
+        if latest_only:
+            profit = self.profit_history[-1]
+            total_profit = sum(profit.values())
+        else:
+            total_profit = sum(sum(profit.values()) for profit in self.profit_history)
+
+        return total_profit
 
     # calculates the user sentiment from tweets.
     def user_sentiment(self):
