@@ -66,7 +66,7 @@ class Seller(object):
     def loop(self):
         """
         tick time for seller, representing one quarter sales period
-        :return: null
+        :return: none
         """
         while not self.STOP:
             self.tick()
@@ -77,7 +77,7 @@ class Seller(object):
         """
         Add number of items sold when product is sold
         :param product: product sold by the seller
-        :return: null
+        :return: none
         """
         self.lock.acquire()
         self.item_sold[product] += 1
@@ -90,7 +90,7 @@ class Seller(object):
         1. record sales history of number of items sold for each product
         2. calculate the metrics for previous tick and add to tracker, like revenue, expense, profit, user sentiment
         3. decide advertising type in next step by calling CEO function
-        :return: null
+        :return: none
         """
         self.lock.acquire()
 
@@ -106,7 +106,6 @@ class Seller(object):
         # append revenue and profit record to the history
         self.revenue_history.append(revenue)
         self.profit_history.append(profit)
-
         self.sentiment_history.append(self.user_sentiment())
 
         # add the profit to seller's wallet
@@ -114,10 +113,13 @@ class Seller(object):
 
         # reset the sales counter
         self.item_sold.fromkeys(self.item_sold, 0)
+        
+        # adjust price for next time step
+        self.adjust_price()
 
-        # choose what to do for next time step
+        # choose advertisement strategy for next time step
         advert_type, scale = self.CEO()
-
+        
         # print data to show progress
         print('Revenue in previous quarter:', self.my_revenue(True))
         print('Expenses in previous quarter:', self.my_expenses(True))
@@ -142,7 +144,7 @@ class Seller(object):
         """
         calculate the total revenue
         :param latest_only: give the revenue in last tick if latest_only = True, else give the total revenue
-        :return: total revenue for all products sold
+        :return: total revenue for all products sold (float)
         """
         if latest_only:
             revenue = self.revenue_history[-1]
@@ -152,12 +154,11 @@ class Seller(object):
 
         return total_revenue
 
-    # calculates the total revenue. Gives the revenue in last tick if latest_only = True
     def my_expenses(self, latest_only=False):
         """
         calculate the total expense
         :param latest_only: give the expense in last tick if latest_only = True, else give the total expense
-        :return: total expense for all products
+        :return: total expense for all products (float)
         """
         if latest_only:
             expense = self.expense_history[-1]
@@ -171,7 +172,7 @@ class Seller(object):
         """
         calculate the total profit
         :param latest_only: give the profit in last tick if latest_only = True, else give the total profit
-        :return: total profit earned from all products sold
+        :return: total profit earned from all products sold (float)
         """
         if latest_only:
             profit = self.profit_history[-1]
@@ -180,13 +181,37 @@ class Seller(object):
             total_profit = sum(sum(profit.values()) for profit in self.profit_history)
 
         return total_profit
-
-    # calculates the user sentiment from tweets.
+     
     def user_sentiment(self):
+        """
+        calculates the user sentiment from tweets.
+        """
         tweets = numpy.asarray(Twitter.get_latest_tweets(self.product, 100))
-        return 1 if len(tweets) == 0 else (tweets == 'POSITIVE').mean()
+        return 1 if len(tweets) == 0 else (tweets == 'POSITIVE').mean()   
+
+    
+    def my_sales(self, product, latest_only=False):
+        """
+        calculate sales of product
+        :param latest_only: give the sales in last tick if latest_only = True, else give total sales
+        :return: total sales for product
+        """
+        if latest_only:
+            total_sales = self.sales_history[-1][product]
+        else:
+            total_sales = sum(sales[product] for sales in self.sales_history)
+
+        return total_sales
+    
+    def my_inventory(self, product):
+        """
+        :return: inventory of product in last tick
+        """
+        return self.inventory[-1][product]
+
 
     # to stop the seller thread
+
     def kill(self):
         self.STOP = True
         self.thread.join()
@@ -217,3 +242,37 @@ class Seller(object):
             self.product) < 0.5 else GoogleAds.ADVERT_TARGETED
         scale = self.wallet // GoogleAds.advert_price[advert_type] // 2  # not spending everything
         return advert_type, scale
+    
+    def adjust_price(self):
+        """
+        This function is for seller to increase or reduce price based on historical data:
+        1. increase price when average sales is above target.
+        2. reduce price when inventory is more than benchmark for a time period
+        or average sales volume is lower than benchmark.
+        :return: none
+        """
+        invent_bench = 1000
+        sales_target = 100
+        sales_bench = 10
+        for product in self.products_list:
+            
+            total_sales = self.my_sales(product)
+            qtrs = len(self.sales_history)
+            avg_sales = total_sales / qtrs
+            price_delta = 0
+            
+            # 90% price increase for more profit
+            if avg_sales > sales_target:
+                price_delta = 0.1
+            
+            # 90% discount promotion to improve sales
+            elif avg_sales < sales_bench:
+                price_delta = -0.1
+            
+            # 80% discount to clear inventory
+            elif self.my_inventory(product) > invent_bench:
+                price_delta = -0.2
+            
+            product.price = product.price * (1 + price_delta)
+        
+        return
