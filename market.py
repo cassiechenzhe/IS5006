@@ -21,7 +21,7 @@ class Market(object):
         seller = Market.catalogue[product]
 
         # call seller's sold function
-        seller.sold()
+        seller.sold(product)
 
         # deduct price from user's balance
         buyer.deduct(product.price)

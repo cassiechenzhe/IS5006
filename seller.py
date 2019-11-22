@@ -21,7 +21,7 @@ class Seller(object):
         """
         self.name = name
         # Each seller can sell multiple products in products_list
-        self.products_list = []
+        self.products_list = products_list
         # self.product = product
         self.wallet = wallet
 
@@ -34,10 +34,16 @@ class Seller(object):
         # item_sold is total number of items of each product sold by seller.
         # A dictionary with each product as key and value is no. of items sold.eg.{iphone: 0, airpods: 0}
         self.item_sold = {key: 0 for key in products_list}
+        
+        # advert_type and scale store data of advertisement strategy and users viewing ads for each product
+        # expense is expense of advertisement
+        self.advert_type = {key: GoogleAds.ADVERT_BASIC for key in self.products_list}
+        self.scale = {key: 1 for key in self.products_list}
+        self.expense = {key: 1 for key in self.products_list}
 
         # inventory is a list of dictionary with product as key and inventory number as value for each quarter
         # assume initial inventory is 1000 items for each product. Eg.[{iphone: 1000, airpods: 1000}]
-        self.inventory = [{key: 1000 for key in products_list}]
+        self.inventory_history = [{key: 1000 for key in products_list}]
 
         # sales, revenue, profit, expense and sentiment history start with zero for each product
         # Eg.[{iphone: 0, airpods: 0}]
@@ -107,13 +113,13 @@ class Seller(object):
         self.adjust_price()
 
         # choose advertisement strategy for next time step
-        advert_type, scale = self.CEO()
+        self.CEO()
         
         # print data to show progress
-        print('\n\nSeller: ', self.name)
-        print('Revenue in previous quarter:', self.my_revenue(True))
-        print('Expenses in previous quarter:', self.my_expenses(True))
-        print('Profit in previous quarter:', self.my_profit(True))
+#        print('\n\nSeller: ', self.name)
+#        print('Revenue in previous quarter:', self.my_revenue(True))
+#        print('Expenses in previous quarter:', self.my_expenses(True))
+#        print('Profit in previous quarter:', self.my_profit(True))
         #print('\nStrategy for next quarter \nProduct: {}, Advert Type: {}, scale: {}\n\n'.format(product.name, advert_type[product], scale[product]) for product in self.products_list)
 
         # write into google worksheet
@@ -126,6 +132,8 @@ class Seller(object):
 #                                    'Strategy for next quarter Advert Type:{}, scale: {}'.format(advert_type, scale))
 
         self.lock.release()
+        
+        return
 
     def record_metric(self):
         
@@ -141,12 +149,6 @@ class Seller(object):
         self.revenue_history.append(revenue)
         self.profit_history.append(profit)
         self.sentiment_history.append(self.user_sentiment())
-        
-        # perform the actions and view the expense
-        expense = {key: 0 for key in self.products_list}
-        for product in self.products_list:
-            expense[product] = GoogleAds.post_advertisement(self, product, advert_type[product], scale[product])
-        self.expense_history.append(expense)
         
         return
     
@@ -191,7 +193,21 @@ class Seller(object):
             total_profit = sum(sum(profit.values()) for profit in self.profit_history)
 
         return total_profit
-     
+    
+    def my_sales(self, latest_only=False):
+        """
+        calculate total sales
+        :param latest_only: give the sales in last tick if latest_only = True, else give total sales
+        :return: total sales for all products
+        """
+        if latest_only:
+            sales = self.sales_history[-1]
+            total_sales = sum(sales.values())
+        else:
+            total_sales = sum(sum(sales.values()) for sales in self.sales_history)
+
+        return total_sales     
+    
     def user_sentiment(self):
         """
         calculates the user sentiment from tweets.
@@ -207,25 +223,27 @@ class Seller(object):
 
         return sentiment_list
 
-    def my_sales(self, product, latest_only=False):
+    def prd_sales(self, product, latest_only=False):
         """
         calculate sales of product
         :param latest_only: give the sales in last tick if latest_only = True, else give total sales
         :return: total sales for product
         """
         if latest_only:
-            total_sales = self.sales_history[-1][product]
+            prd_sales = self.sales_history[-1][product]
         else:
-            total_sales = sum(sales[product] for sales in self.sales_history)
+            prd_sales = sum(sales[product] for sales in self.sales_history)
+        return prd_sales
 
-        return total_sales
-    
-    
-    def my_inventory(self, product):
+    def prd_inventory(self, product, latest_only=False):
         """
         :return: inventory of product in last tick
         """
-        return self.inventory[-1][product]
+        if latest_only:
+            prd_inventory = self.inventory_history[-1][product]
+        else:
+            prd_inventory = sum(inv[product] for inv in self.inventory_history)        
+        return prd_inventory
 
 
     def kill(self):
@@ -247,30 +265,37 @@ class Seller(object):
         Set total advertisement budget less than a percentage of revenue, to avoid bankrupt
         Scale (number of ads to put) equals to budget divided by advert price.
         
-        :return: the type of advert seller want to publish and at what scale for each product
+        :return: none
         """
-        
-        advert_type = {key: GoogleAds.ADVERT_BASIC for key in self.products_list}
-        scale = {key: 1 for key in self.products_list}
-        
         for product in self.products_list:
-            
-            sales = self.my_sales(product, True)
-            ads_target_sales = 500
-            
+            sales = self.prd_sales(product, True)
+            ads_target_sales = 10
+             
             revenue = self.revenue_history[-1][product]
-            ads_percent = 0.05
-            ads_budget = ads_percent * revenue
-            
-            if GoogleAds.user_coverage(product) < 0.5 or sales > ads_target_sales:
-                advert_type[product] = GoogleAds.ADVERT_BASIC
+            ads_percent = 0.1
+            if revenue == 0:
+                ads_budget = 0.05 * self.wallet #avoid bankrupt
             else:
-                advert_type[product] = GoogleAds.ADVERT_TARGETED
+                ads_budget = ads_percent * revenue
             
+            ads_type = GoogleAds.ADVERT_BASIC
+            
+            if GoogleAds.user_coverage(product) > 0.5 and sales < ads_target_sales:
+                ads_type = GoogleAds.ADVERT_TARGETED
+ 
             # scale = budget/ads price, round down to integer
-            scale[product] = max((ads_budget // GoogleAds.advert_price[advert_type]), 1)
+            # scale = max((ads_budget // GoogleAds.advert_price[ads_type]), 1)
+            scale = int(ads_budget / GoogleAds.advert_price[ads_type])
+                        
+            # perform the actions and view the expense
+            self.advert_type[product] = ads_type
+            self.scale[product] = scale
+            self.expense[product] = GoogleAds.post_advertisement(self, product, ads_type, scale)
         
-        return advert_type, scale
+        # store expense data
+        self.expense_history.append(self.expense)
+        
+        return
     
     def adjust_price(self):
         """
@@ -285,7 +310,7 @@ class Seller(object):
         sales_bench = 10
         for product in self.products_list:
             
-            total_sales = self.my_sales(product)
+            total_sales = self.prd_sales(product)
             qtrs = len(self.sales_history)
             avg_sales = total_sales / qtrs
             price_delta = 0
@@ -299,7 +324,7 @@ class Seller(object):
                 price_delta = -0.1
             
             # 80% discount to clear inventory
-            elif self.my_inventory(product) > invent_bench:
+            elif self.prd_inventory(product) > invent_bench:
                 price_delta = -0.2
             
             product.price = product.price * (1 + price_delta)
