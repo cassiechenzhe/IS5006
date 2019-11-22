@@ -1,7 +1,8 @@
 import time
 from threading import Lock, Thread
 
-import numpy
+import numpy as np
+import pandas as pd
 
 from constants import tick_time
 from google_ads import GoogleAds
@@ -29,7 +30,11 @@ class Seller(object):
         if products_list is not None:
             for product in products_list:
                 Market.register_seller(self, product)
-
+        
+        # establish relationships between products
+        # relate_factor = pd.DataFrame(index=products_list, columns=products_list)
+        
+        
         # metrics tracker:
         # item_sold is total number of items of each product sold by seller.
         # A dictionary with each product as key and value is no. of items sold.eg.{iphone: 0, airpods: 0}
@@ -116,10 +121,11 @@ class Seller(object):
         self.CEO()
         
         # print data to show progress
-#        print('\n\nSeller: ', self.name)
-#        print('Revenue in previous quarter:', self.my_revenue(True))
-#        print('Expenses in previous quarter:', self.my_expenses(True))
-#        print('Profit in previous quarter:', self.my_profit(True))
+        print('\n\nSeller: ', self.name)
+        print('Sales in previous quarter:', self.my_sales(True))
+        print('Revenue in previous quarter:', self.my_revenue(True))
+        print('Expenses in previous quarter:', self.my_expenses(True))
+        print('Profit in previous quarter:', self.my_profit(True))
         #print('\nStrategy for next quarter \nProduct: {}, Advert Type: {}, scale: {}\n\n'.format(product.name, advert_type[product], scale[product]) for product in self.products_list)
 
         # write into google worksheet
@@ -217,7 +223,7 @@ class Seller(object):
         
         # get the latest tweets and calculate the percentage of positive tweets as user_sentiment
         for product in self.products_list:
-            tweets = numpy.asarray(Twitter.get_latest_tweets(product, 100))
+            tweets = np.asarray(Twitter.get_latest_tweets(product, 100))
             sentiment = 1 if len(tweets) == 0 else (tweets == 'POSITIVE').mean()
             sentiment_list[product] = sentiment
 

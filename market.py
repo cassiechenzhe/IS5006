@@ -28,3 +28,8 @@ class Market(object):
 
         # track user
         GoogleAds.track_user_purchase(buyer, product)
+    
+#    # return all products registered in the market
+    @staticmethod
+    def get_products():
+        return list(Market.catalogue.keys())
