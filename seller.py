@@ -7,7 +7,7 @@ from constants import tick_time
 from google_ads import GoogleAds
 from market import Market
 from twitter import Twitter
-import sheet_api
+#import sheet_api
 
 
 class Seller(object):
@@ -20,7 +20,7 @@ class Seller(object):
         :param wallet: total money owned by the seller
         """
         self.name = name
-        # Each seller can sell multiple products, products_list is
+        # Each seller can sell multiple products in products_list
         self.products_list = []
         # self.product = product
         self.wallet = wallet
@@ -31,28 +31,27 @@ class Seller(object):
                 Market.register_seller(self, product)
 
         # metrics tracker:
-        # item_sold is a dictionary with each product as key, and value is number of items sold for each product
+        # item_sold is total number of items of each product sold by seller.
+        # A dictionary with each product as key and value is no. of items sold.eg.{iphone: 0, airpods: 0}
         self.item_sold = {key: 0 for key in products_list}
 
         # inventory is a list of dictionary with product as key and inventory number as value for each quarter
-        # assume initial inventory is 1000 items for each product. Example: [{iphone: 1000, airpods: 1000}]
+        # assume initial inventory is 1000 items for each product. Eg.[{iphone: 1000, airpods: 1000}]
         self.inventory = [{key: 1000 for key in products_list}]
 
         # sales, revenue, profit, expense and sentiment history start with zero for each product
+        # Eg.[{iphone: 0, airpods: 0}]
         self.sales_history = [{key: 0 for key in products_list}]
         self.revenue_history = [{key: 0 for key in products_list}]
         self.profit_history = [{key: 0 for key in products_list}]
         self.expense_history = [{key: 0 for key in products_list}]
         self.sentiment_history = [{key: 0 for key in products_list}]
 
-        # total number of items of each product sold by seller. example: {iphone: 0, airpods: 0}
-        self.item_sold = {key: 0 for key in products_list}
-
         # qtr number
         self.qtr = 0
 
         # google sheet to store records
-        self.worksheet = sheet_api.workbook.worksheet(self.name)
+        #self.worksheet = sheet_api.workbook.worksheet(self.name)
 
         # Flag for thread
         self.STOP = False
@@ -65,17 +64,16 @@ class Seller(object):
 
     def loop(self):
         """
-        tick time for seller, representing one quarter sales period
+        tick time for seller, one tick represent one quarter
         :return: none
         """
         while not self.STOP:
             self.tick()
             time.sleep(tick_time)
 
-    # if an item is sold, add it to the database
     def sold(self, product):
         """
-        Add number of items sold when product is sold
+        Add to the database when an item is sold
         :param product: product sold by the seller
         :return: none
         """
@@ -83,30 +81,21 @@ class Seller(object):
         self.item_sold[product] += 1
         self.lock.release()
 
-    # one time step in the simulation world
     def tick(self):
         """
-        In one time step in the simulation world, do:
+        Actions to do in one time step in the simulation world:
         1. record sales history of number of items sold for each product
         2. calculate the metrics for previous tick and add to tracker, like revenue, expense, profit, user sentiment
         3. decide advertising type in next step by calling CEO function
         :return: none
         """
+        # lock time to avoid actions overlap
         self.lock.acquire()
 
         # record timestamp/quarter number
         self.qtr += 1
-
-        # calculate the metrics for previous tick and add to tracker: sales, revenue and profit
-        self.sales_history.append(self.item_sold)
-        revenue = {product: sales * product.price for product, sales in self.item_sold.items()}
-        expense = self.expense_history[-1]
-        profit = {product: revenue - expense[product] for product, revenue in revenue.items() if product in expense}
-
-        # append revenue and profit record to the history
-        self.revenue_history.append(revenue)
-        self.profit_history.append(profit)
-        self.sentiment_history.append(self.user_sentiment())
+        
+        self.record_metric()
 
         # add the profit to seller's wallet
         self.wallet += self.my_profit(True)
@@ -121,25 +110,46 @@ class Seller(object):
         advert_type, scale = self.CEO()
         
         # print data to show progress
+        print('\n\nSeller: ', self.name)
         print('Revenue in previous quarter:', self.my_revenue(True))
         print('Expenses in previous quarter:', self.my_expenses(True))
         print('Profit in previous quarter:', self.my_profit(True))
-        print('\nStrategy for next quarter \nAdvert Type: {}, scale: {}\n\n'.format(advert_type, scale))
+        #print('\nStrategy for next quarter \nProduct: {}, Advert Type: {}, scale: {}\n\n'.format(product.name, advert_type[product], scale[product]) for product in self.products_list)
 
         # write into google worksheet
-        self.worksheet.update_acell(str('A') + str(self.qtr + 1), self.name)
-        self.worksheet.update_acell(str('B') + str(self.qtr + 1), self.qtr)
-        self.worksheet.update_acell(str('C') + str(self.qtr + 1), self.my_revenue(True))
-        self.worksheet.update_acell(str('D') + str(self.qtr + 1), self.my_expenses(True))
-        self.worksheet.update_acell(str('E') + str(self.qtr + 1), self.my_profit(True))
-        self.worksheet.update_acell(str('F') + str(self.qtr + 1),
-                                    'Strategy for next quarter Advert Type:{}, scale: {}'.format(advert_type, scale))
+#        self.worksheet.update_acell(str('A') + str(self.qtr + 1), self.name)
+#        self.worksheet.update_acell(str('B') + str(self.qtr + 1), self.qtr)
+#        self.worksheet.update_acell(str('C') + str(self.qtr + 1), self.my_revenue(True))
+#        self.worksheet.update_acell(str('D') + str(self.qtr + 1), self.my_expenses(True))
+#        self.worksheet.update_acell(str('E') + str(self.qtr + 1), self.my_profit(True))
+#        self.worksheet.update_acell(str('F') + str(self.qtr + 1),
+#                                    'Strategy for next quarter Advert Type:{}, scale: {}'.format(advert_type, scale))
 
         self.lock.release()
 
-        # perform the actions and view the expense
-        self.expense_history.append(GoogleAds.post_advertisement(self, self.product, advert_type, scale))
+    def record_metric(self):
+        
+        # calculate the metrics for previous tick and add to tracker: sales, revenue and profit
+        # Eg.[{iphone: 1, airpods: 2}]
+        self.sales_history.append(self.item_sold)
+        revenue = {product: sales * product.price for product, sales in self.item_sold.items()}
+        expense = self.expense_history[-1]
+        profit = {product: revenue - expense[product] for product, revenue in revenue.items() if product in expense}
 
+        # append revenue and profit record to the history in a list
+        # Eg.[{iphone: 1, airpods: 2}, {iphone: 2, airpods: 3}]
+        self.revenue_history.append(revenue)
+        self.profit_history.append(profit)
+        self.sentiment_history.append(self.user_sentiment())
+        
+        # perform the actions and view the expense
+        expense = {key: 0 for key in self.products_list}
+        for product in self.products_list:
+            expense[product] = GoogleAds.post_advertisement(self, product, advert_type[product], scale[product])
+        self.expense_history.append(expense)
+        
+        return
+    
     def my_revenue(self, latest_only=False):
         """
         calculate the total revenue
@@ -186,10 +196,17 @@ class Seller(object):
         """
         calculates the user sentiment from tweets.
         """
-        tweets = numpy.asarray(Twitter.get_latest_tweets(self.product, 100))
-        return 1 if len(tweets) == 0 else (tweets == 'POSITIVE').mean()   
+        # initialize sentiment list with 1 for all products representing positive user_sentiment at first
+        sentiment_list = {key: 1 for key in self.products_list}
+        
+        # get the latest tweets and calculate the percentage of positive tweets as user_sentiment
+        for product in self.products_list:
+            tweets = numpy.asarray(Twitter.get_latest_tweets(product, 100))
+            sentiment = 1 if len(tweets) == 0 else (tweets == 'POSITIVE').mean()
+            sentiment_list[product] = sentiment
 
-    
+        return sentiment_list
+
     def my_sales(self, product, latest_only=False):
         """
         calculate sales of product
@@ -203,6 +220,7 @@ class Seller(object):
 
         return total_sales
     
+    
     def my_inventory(self, product):
         """
         :return: inventory of product in last tick
@@ -210,9 +228,10 @@ class Seller(object):
         return self.inventory[-1][product]
 
 
-    # to stop the seller thread
-
     def kill(self):
+        """
+        to stop the seller thread
+        """
         self.STOP = True
         self.thread.join()
 
@@ -221,26 +240,36 @@ class Seller(object):
 
     # Cognition system that decides what to do next.
     def CEO(self):
-        # WRITE YOUR INTELLIGENT CODE HERE
-        # You can use following functions to make decision
-        #   my_revenue
-        #   my_expenses
-        #   my_profit
-        #   user_sentiment
-        #
-        # You need to return the type of advert you want to publish and at what scale
-        # GoogleAds.advert_price[advert_type] gives you the rate of an advert
         """
         Choose advertisement types and scales based on sales, revenue and user_coverage.
-        If revenue is below average or user_coverage is less than target, choose targeted ads, otherwise choose basic ads.
+        If recent sales is above sales_target or user_coverage is less than target, choose basic ads, otherwise choose targeted ads.
+        
         Set total advertisement budget less than a percentage of revenue, to avoid bankrupt
         Scale (number of ads to put) equals to budget divided by advert price.
-
-        :return: the type of advert you want to publish and at what scale for each product
+        
+        :return: the type of advert seller want to publish and at what scale for each product
         """
-        advert_type = GoogleAds.ADVERT_BASIC if GoogleAds.user_coverage(
-            self.product) < 0.5 else GoogleAds.ADVERT_TARGETED
-        scale = self.wallet // GoogleAds.advert_price[advert_type] // 2  # not spending everything
+        
+        advert_type = {key: GoogleAds.ADVERT_BASIC for key in self.products_list}
+        scale = {key: 1 for key in self.products_list}
+        
+        for product in self.products_list:
+            
+            sales = self.my_sales(product, True)
+            ads_target_sales = 500
+            
+            revenue = self.revenue_history[-1][product]
+            ads_percent = 0.05
+            ads_budget = ads_percent * revenue
+            
+            if GoogleAds.user_coverage(product) < 0.5 or sales > ads_target_sales:
+                advert_type[product] = GoogleAds.ADVERT_BASIC
+            else:
+                advert_type[product] = GoogleAds.ADVERT_TARGETED
+            
+            # scale = budget/ads price, round down to integer
+            scale[product] = max((ads_budget // GoogleAds.advert_price[advert_type]), 1)
+        
         return advert_type, scale
     
     def adjust_price(self):
