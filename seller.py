@@ -43,7 +43,8 @@ class Seller(object):
         # advert_type and scale store data of advertisement strategy and users viewing ads for each product
         # expense is expense of advertisement
         self.advert_type = {key: GoogleAds.ADVERT_BASIC for key in self.products_list}
-        self.scale = {key: 1 for key in self.products_list}
+        self.promo_effec = {key: 1 for key in self.products_list}
+        
         self.expense = {key: 1 for key in self.products_list}
 
         # inventory is a list of dictionary with product as key and inventory number as value for each quarter
@@ -56,7 +57,9 @@ class Seller(object):
         self.revenue_history = [{key: 0 for key in products_list}]
         self.profit_history = [{key: 0 for key in products_list}]
         self.expense_history = [{key: 0 for key in products_list}]
-        self.sentiment_history = [{key: 0 for key in products_list}]
+        self.sentiment_history = [{key: 1 for key in products_list}]
+        self.advert_history = []
+        self.promo_history = []
 
         # qtr number
         self.qtr = 0
@@ -107,15 +110,15 @@ class Seller(object):
         #self.qtr += 1
         
         self.sales_history.append(self.item_sold)
-        
+
+        self.lock.release()
+         
         print('\n\nSeller: ', self.name)
         print('Sales in previous quarter:', self.my_sales(True))
         print('Revenue in previous quarter:', self.my_revenue(True))
         print('Expenses in previous quarter:', self.my_expenses(True))
         print('Profit in previous quarter:', self.my_profit(True))
-        
-        self.lock.release()
-        
+               
         self.record_metric()
 
         # add the profit to seller's wallet
@@ -141,13 +144,19 @@ class Seller(object):
         revenue = {product: sales * product.price for product, sales in self.item_sold.items()}
         expense = self.expense_history[-1]
         profit = {product: revenue - expense[product] for product, revenue in revenue.items() if product in expense}
-
+        
         # append revenue and profit record to the history in a list
         # Eg.[{iphone: 1, airpods: 2}, {iphone: 2, airpods: 3}]
         self.revenue_history.append(revenue)
         self.profit_history.append(profit)
-        #self.sentiment_history.append(self.user_sentiment())
+        self.sentiment_history.append(self.user_sentiment())        
+        self.advert_history.append(self.advert_type)
+        self.promo_history.append(self.promo_effec)
+        
         self.item_sold.fromkeys(self.item_sold, 0)
+        self.expense.fromkeys(self.expense, 0)
+        self.advert_type.fromkeys(self.advert_type, GoogleAds.ADVERT_BASIC)
+        self.promo_effec.fromkeys(self.promo_effec, 1)
         
         return
     
@@ -273,22 +282,25 @@ class Seller(object):
             revenue = self.revenue_history[-1][product]
             ads_percent = 0.1
             if revenue == 0:
-                ads_budget = 0.05 * self.wallet #avoid bankrupt
+                ads_budget = 0.5 * self.wallet #avoid bankrupt
             else:
                 ads_budget = ads_percent * revenue
             
             ads_type = GoogleAds.ADVERT_BASIC
             
-            if GoogleAds.user_coverage(product) > 0.5 and sales < ads_target_sales:
+            promo_effet = GoogleAds.user_coverage(product)
+            
+            if promo_effet > 0.5 and sales < ads_target_sales:
                 ads_type = GoogleAds.ADVERT_TARGETED
  
             # scale = budget/ads price, round down to integer
             # scale = max((ads_budget // GoogleAds.advert_price[ads_type]), 1)
-            scale = int(ads_budget / GoogleAds.advert_price[ads_type])
+            scale = max(int(ads_budget / GoogleAds.advert_price[ads_type]), 1)
                         
             # perform the actions and view the expense
             self.advert_type[product] = ads_type
-            self.scale[product] = scale
+            #self.scale[product] = scale
+            self.promo_effec[product] = min(0, float(sales/scale))
             self.expense[product] = GoogleAds.post_advertisement(self, product, ads_type, scale)
         
         # store expense data

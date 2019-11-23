@@ -11,9 +11,6 @@ import sheet_api
 
 random.seed(seed)
 
-# Create some Consumers
-customers = [Customer(name='consumer_' + str(i), wallet=3000, tolerance=0.5 + 0.4 * random.random()) for i in range(500)]
-
 # Create products
 iphone = Product(name='iphone', price=500, quality=0.9)
 airpods = Product(name='airpods', price=50, quality=0.9)
@@ -31,16 +28,19 @@ relation.loc[iphone][airpods] = 0.8
 relation.loc[iphone][phonecase] = 0.9
 relation.loc[airpods][phonecase] = 0.9
 
+# Create some Consumers
+customers = [Customer(name='consumer_' + str(i), wallet=3000, products_list=prd_list,tolerance=0.5 + 0.4 * random.random()) for i in range(500)]
+
 # Create Sellers with some budget
 # Each seller can sell multiple products
-seller_apple = Seller(name='apple', products_list=[iphone,airpods,phonecase], wallet=1000)
-seller_samsung = Seller(name='samsung', products_list=[galaxy,tv], wallet=800)
-seller_xiaomi = Seller(name='xiaomi', products_list=[redmi, robotvac], wallet=500)
-seller_huawei = Seller(name='huawei', products_list=[mate, laptop], wallet=600)
+seller_apple = Seller(name='apple', products_list=[iphone,airpods,phonecase], wallet=10000)
+seller_samsung = Seller(name='samsung', products_list=[galaxy,tv], wallet=8000)
+seller_xiaomi = Seller(name='xiaomi', products_list=[redmi, robotvac], wallet=5000)
+seller_huawei = Seller(name='huawei', products_list=[mate, laptop], wallet=6000)
 
 # Wait till the simulation ends
 try:
-    time.sleep(5)
+    time.sleep(10)
 except KeyboardInterrupt:
     pass
 

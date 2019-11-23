@@ -25,7 +25,9 @@ def update_sheet(sellers_list):
     """
     record sales, revenue, profit in google spreadsheet
     """
-    coln_list = ['Seller', 'QTR', 'Product', 'Sales', 'Revenue', 'Expense', 'Profit', 'Advertisement Strategy']
+    coln_list = ['Seller', 'QTR', 'Product', 'Sales', 'Revenue', 'Expense',
+                 'Profit', 'Advertisement Strategy', 'Promotion Effectiveness'
+                 'Num of Buyers', 'Budget']
     lst = []
     
     for seller in sellers_list: 
@@ -40,7 +42,10 @@ def update_sheet(sellers_list):
 
         for qtr in range(qtr_list):
             for prd in prd_list:
-                prd_history = [str(seller.name), int(qtr+1), str(prd.name), int(sales[qtr][prd]), int(revenue[qtr][prd]), int(expense[qtr][prd]), int(profit[qtr][prd]), 'BASIC']
+                prd_history = [str(seller.name), int(qtr+1), str(prd.name),
+                               int(sales[qtr][prd]), int(revenue[qtr][prd]),
+                               int(-expense[qtr][prd]), int(profit[qtr][prd]),
+                               'BASIC', int(0.8), int(sales[qtr][prd]), int(2000)]
                 print(prd_history)
                 lst.append(prd_history)
     
@@ -50,77 +55,3 @@ def update_sheet(sellers_list):
     d2g.upload(df, spreadsheet_key, wks_name, credentials=credentials, row_names=True)
     
     return df
-
-
-
-#def update_title(sheet):
-#    """
-#    update column names in first row
-#    """
-#    sheet.update_acell('A1', 'Seller')
-#    sheet.update_acell('B1', 'QTR')
-#    sheet.update_acell('C1', 'Product')
-#    sheet.update_acell('D1', 'Sales')
-#    sheet.update_acell('E1', 'Revenue')
-#    sheet.update_acell('F1', 'Expense')
-#    sheet.update_acell('G1', 'Profit')
-#    sheet.update_acell('H1', 'Advertisement Strategy')
-#    
-#    return
-#
-#def update_sheet(sellers_list):
-#    """
-#    record sales, revenue, profit in google spreadsheet
-#    """
-#    for seller in sellers_list:
-#        
-#        # Create worksheets for seller 
-#        workbook.add_worksheet(seller.name, rows=100, cols=100)
-#        worksheet = workbook.worksheet(seller.name)
-#        
-#        # update column title in first row
-#        update_title(worksheet)
-#        row_num = 1   # move to next row
-#        
-#        # update metrics
-#        sales = seller.sales_history
-#        revenue = seller.revenue_history
-#        expense = seller.expense_history
-#        profit = seller.profit_history
-#        
-#        qtr_list = len(revenue)
-#        prd_list = seller.products_list
-#
-#        for qtr in range(qtr_list):
-#            for prd in prd_list:
-#                row_num +=1
-#                worksheet.update_acell(str('A') + str(row_num), seller.name)
-#                worksheet.update_acell(str('B') + str(row_num), qtr+1)
-#                worksheet.update_acell(str('C') + str(row_num), prd.name)
-#                worksheet.update_acell(str('D') + str(row_num), sales[qtr][prd])
-#                worksheet.update_acell(str('E') + str(row_num), revenue[qtr][prd])
-#                worksheet.update_acell(str('F') + str(row_num), expense[qtr][prd])
-#                worksheet.update_acell(str('G') + str(row_num), profit[qtr][prd])
-#    return
-    
-
-#for sheet in workbook.worksheets():
-#    sheet.update_acell('A1', 'Seller')
-#    sheet.update_acell('B1', 'QTR')
-#    sheet.update_acell('C1', 'Revenue')
-#    sheet.update_acell('D1', 'Expense')
-#    sheet.update_acell('E1', 'Profit')
-#    sheet.update_acell('F1', 'Advertisement Strategy')
-
-        # google sheet to store records
-        #self.worksheet = sheet_api.workbook.worksheet(self.name)
-
-# write into google worksheet
-
-#        self.worksheet.update_acell(str('A') + str(self.qtr + 1), self.name)
-#        self.worksheet.update_acell(str('B') + str(self.qtr + 1), self.qtr)
-#        self.worksheet.update_acell(str('C') + str(self.qtr + 1), self.my_revenue(True))
-#        self.worksheet.update_acell(str('D') + str(self.qtr + 1), self.my_expenses(True))
-#        self.worksheet.update_acell(str('E') + str(self.qtr + 1), self.my_profit(True))
-#        self.worksheet.update_acell(str('F') + str(self.qtr + 1),
-#                                    'Strategy for next quarter Advert Type:{}, scale: {}'.format(advert_type, scale))
