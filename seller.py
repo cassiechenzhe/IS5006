@@ -91,7 +91,7 @@ class Seller(object):
         self.lock.acquire()
         self.item_sold[product] += 1
         self.lock.release()
-
+    
     def tick(self):
         """
         Actions to do in one time step in the simulation world:
@@ -104,7 +104,17 @@ class Seller(object):
         self.lock.acquire()
 
         # record timestamp/quarter number
-        self.qtr += 1
+        #self.qtr += 1
+        
+        self.sales_history.append(self.item_sold)
+        
+        print('\n\nSeller: ', self.name)
+        print('Sales in previous quarter:', self.my_sales(True))
+        print('Revenue in previous quarter:', self.my_revenue(True))
+        print('Expenses in previous quarter:', self.my_expenses(True))
+        print('Profit in previous quarter:', self.my_profit(True))
+        
+        self.lock.release()
         
         self.record_metric()
 
@@ -112,7 +122,7 @@ class Seller(object):
         self.wallet += self.my_profit(True)
 
         # reset the sales counter
-        self.item_sold.fromkeys(self.item_sold, 0)
+        #self.item_sold.fromkeys(self.item_sold, 0)
         
         # adjust price for next time step
         self.adjust_price()
@@ -120,32 +130,14 @@ class Seller(object):
         # choose advertisement strategy for next time step
         self.CEO()
         
-        # print data to show progress
-        print('\n\nSeller: ', self.name)
-        print('Sales in previous quarter:', self.my_sales(True))
-        print('Revenue in previous quarter:', self.my_revenue(True))
-        print('Expenses in previous quarter:', self.my_expenses(True))
-        print('Profit in previous quarter:', self.my_profit(True))
         #print('\nStrategy for next quarter \nProduct: {}, Advert Type: {}, scale: {}\n\n'.format(product.name, advert_type[product], scale[product]) for product in self.products_list)
-
-        # write into google worksheet
-#        self.worksheet.update_acell(str('A') + str(self.qtr + 1), self.name)
-#        self.worksheet.update_acell(str('B') + str(self.qtr + 1), self.qtr)
-#        self.worksheet.update_acell(str('C') + str(self.qtr + 1), self.my_revenue(True))
-#        self.worksheet.update_acell(str('D') + str(self.qtr + 1), self.my_expenses(True))
-#        self.worksheet.update_acell(str('E') + str(self.qtr + 1), self.my_profit(True))
-#        self.worksheet.update_acell(str('F') + str(self.qtr + 1),
-#                                    'Strategy for next quarter Advert Type:{}, scale: {}'.format(advert_type, scale))
-
-        self.lock.release()
-        
         return
 
     def record_metric(self):
         
         # calculate the metrics for previous tick and add to tracker: sales, revenue and profit
         # Eg.[{iphone: 1, airpods: 2}]
-        self.sales_history.append(self.item_sold)
+        #self.sales_history.append(self.item_sold)
         revenue = {product: sales * product.price for product, sales in self.item_sold.items()}
         expense = self.expense_history[-1]
         profit = {product: revenue - expense[product] for product, revenue in revenue.items() if product in expense}
@@ -154,7 +146,8 @@ class Seller(object):
         # Eg.[{iphone: 1, airpods: 2}, {iphone: 2, airpods: 3}]
         self.revenue_history.append(revenue)
         self.profit_history.append(profit)
-        self.sentiment_history.append(self.user_sentiment())
+        #self.sentiment_history.append(self.user_sentiment())
+        self.item_sold.fromkeys(self.item_sold, 0)
         
         return
     

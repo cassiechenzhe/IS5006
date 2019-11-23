@@ -24,7 +24,7 @@ class Market(object):
         seller.sold(product)
         
         # print to debug
-        print('\nSeller: ', seller.name, ' Product: ', product.name)
+        # print('\nSeller: ', seller.name, ' Product: ', product.name)
 
         # deduct price from user's balance
         buyer.deduct(product.price)

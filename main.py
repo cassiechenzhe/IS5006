@@ -40,7 +40,7 @@ seller_huawei = Seller(name='huawei', products_list=[mate, laptop], wallet=600)
 
 # Wait till the simulation ends
 try:
-    time.sleep(1)
+    time.sleep(5)
 except KeyboardInterrupt:
     pass
 
@@ -61,8 +61,8 @@ print('Total Profit Samsung:', seller_samsung.my_profit())
 print('Total Profit Xiaomi:', seller_xiaomi.my_profit())
 print('Total Profit Huawei:', seller_huawei.my_profit())
 
-sellers_list = [seller_apple, seller_samsung, seller_xiaomi, seller_huawei]
-sheet_api.update_sheet(sellers_list)
+#sellers_list = [seller_apple, seller_samsung, seller_xiaomi, seller_huawei]
+#sheet_api.update_sheet(sellers_list)
 
 # Kill consumer threads
 for consumer in customers:

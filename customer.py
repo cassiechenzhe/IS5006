@@ -84,6 +84,8 @@ class Customer(object):
         # remove the adverts from ad_space
         self.ad_space = set()
 
+        self.lock.release()
+        
         # with some chance, the user may tweet about the product
         if random.random() < 0.5 and len(self.owned_products) > 0:
             # he may choose any random product
@@ -95,7 +97,7 @@ class Customer(object):
             # tweet sent
             self.tweet(product, sentiment)
 
-        self.lock.release()
+        #self.lock.release()
 
     # set the flag to True and wait for thread to join
     def kill(self):
