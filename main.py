@@ -29,8 +29,8 @@ relation.loc[iphone][phonecase] = 0.9
 relation.loc[airpods][phonecase] = 0.9
 
 # Create some Consumers
-sensitive_customers = [Customer(name='consumer_' + str(i), wallet=3000, products_list=prd_list,tolerance=0.7 + 0.1 * random.random()) for i in range(300)]
-insensitive_customers = [Customer(name='consumer_' + str(i), wallet=2000, products_list=prd_list,tolerance=0.5 + 0.4 * random.random()) for i in range(300, 500)]
+sensitive_customers = [Customer(name='consumer_' + str(i), wallet=3000, products_list=prd_list,tolerance=0.7 + 0.2 * random.random()) for i in range(300)]
+insensitive_customers = [Customer(name='consumer_' + str(i), wallet=2000, products_list=prd_list,tolerance=0.3 + 0.6 * random.random()) for i in range(300, 500)]
 
 # Create Sellers with some budget
 # Each seller can sell multiple products
@@ -41,7 +41,7 @@ seller_huawei = Seller(name='huawei', products_list=[mate, laptop], wallet=600)
 
 # Wait till the simulation ends
 try:
-    time.sleep(10)
+    time.sleep(5)
 except KeyboardInterrupt:
     pass
 

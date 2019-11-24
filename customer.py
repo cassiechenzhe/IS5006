@@ -56,16 +56,18 @@ class Customer(object):
         self.lock.release()
 
     # Consumer decided to buy a 'product'.
-    def buy(self, product):
+    def buy(self, product_list):
         # if not enough money in wallet, don't proceed
-        if self.wallet < product.price:
+        total_price = sum(product.price for product in product_list)
+        if self.wallet < total_price:
             return
 
         # purchase the product from market
-        Market.buy(self, product)
+        Market.buy(self, product_list)
 
         # add product to the owned products list
-        self.owned_products.append(product)
+        for product in product_list:
+            self.owned_products.append(product)
 
     # money is deducted from user's wallet when purchase is completed
     def deduct(self, money):
@@ -86,21 +88,19 @@ class Customer(object):
         self.lock.acquire()
         
         current_list = self.owned_products
-
+        purchased_products = []
         # user looks at all the adverts in his ad_space
         if len(self.ad_space) > 0:
             for product in self.ad_space:
                 # user checks the reviews about the product on twitter
                 tweets = numpy.asarray(Twitter.get_latest_tweets(product, 20))
                 user_sentiment = 1 if len(tweets) == 0 else (tweets == 'POSITIVE').mean()
-    
-                # if sentiment is more than user's tolerance and user does not have the product, then he/she may buy it with 20% chance. If it already has the product, then chance of buying again is 1%
-                # if user_sentiment >= self.tolerance and ((product not in self.owned_products and random.random() < 0.1) or (product in self.owned_products and random.random() < 0.01)):
-                #     self.buy(product)
+                #seller = Market.catalogue[product]
+                #print("This is the seller:", seller)
                 if user_sentiment >= self.tolerance:
                     if product in current_list and random.random() < 0.5:
-                        self.buy(product)
-                    
+                        #self.buy(product)
+                        purchased_products.append(product)
                     elif product not in current_list and random.random() < 0.9:
                         product_id = self.products_list.index(product)
                         if len(current_list) > 0:
@@ -108,10 +108,10 @@ class Customer(object):
                                 item_id = self.products_list.index(item)
                                 #print("This is the current own item id:", item_id)
                                 if self.products_matrix[product_id][item_id] > 0.2:
-                                    self.buy(product)
+                                    purchased_products.append(product)
                         else:
-                            self.buy(product)
-
+                            purchased_products.append(product)
+        self.buy(purchased_products)
         # remove the adverts from ad_space
         self.ad_space = []
         
@@ -126,8 +126,6 @@ class Customer(object):
 
             # tweet sent
             self.tweet(product, sentiment)
-
-        #self.lock.release()
 
     # set the flag to True and wait for thread to join
     def kill(self):

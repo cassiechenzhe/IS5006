@@ -48,8 +48,8 @@ class Seller(object):
         self.expense = {key: 1 for key in self.products_list}
 
         # inventory is a list of dictionary with product as key and inventory number as value for each quarter
-        # assume initial inventory is 1000 items for each product. Eg.[{iphone: 1000, airpods: 1000}]
-        self.inventory_history = [{key: 1000 for key in products_list}]
+        # assume initial inventory is 1000 items for each product. Eg.{iphone: 1000, airpods: 1000}
+        self.inventory = {key: 500 for key in products_list}
 
         # sales, revenue, profit, expense and sentiment history start with zero for each product
         # Eg.[{iphone: 0, airpods: 0}]
@@ -94,11 +94,18 @@ class Seller(object):
         """
         Add to the database when an item is sold
         :param product: product sold by the seller
-        :return: none
+        :return: available or not
         """
         self.lock.acquire()
-        self.item_sold[product] += 1
-        self.lock.release()
+        if self.inventory[product] > 1:
+            self.item_sold[product] += 1
+            self.inventory[product] -= self.item_sold[product]
+            self.lock.release()
+            return 'YES'
+        else:
+            self.lock.release()
+            return 'NO'
+            
     
     def tick(self):
         """
@@ -115,6 +122,8 @@ class Seller(object):
         #self.qtr += 1
         
         self.sales_history.append(self.item_sold)
+        
+        self.record_metric()
 
         self.lock.release()
          
@@ -124,7 +133,7 @@ class Seller(object):
 #        print('Expenses in previous quarter:', self.my_expenses(True))
 #        print('Profit in previous quarter:', self.my_profit(True))
                
-        self.record_metric()
+
 
         # add the profit to seller's wallet
         self.wallet += self.my_profit(True)
@@ -252,17 +261,6 @@ class Seller(object):
             prd_sales = sum(sales[product] for sales in self.sales_history)
         return prd_sales
 
-    def prd_inventory(self, product, latest_only=False):
-        """
-        :return: inventory of product in last tick
-        """
-        if latest_only:
-            prd_inventory = self.inventory_history[-1][product]
-        else:
-            prd_inventory = sum(inv[product] for inv in self.inventory_history)        
-        return prd_inventory
-
-
     def kill(self):
         """
         to stop the seller thread
@@ -325,9 +323,10 @@ class Seller(object):
         or average sales volume is lower than benchmark.
         :return: none
         """
-        invent_bench = 1000
-        sales_target = 100
-        sales_bench = 10
+        invent_bench = 800
+        invent_min = 100
+        sales_target = 200
+        sales_bench = 2
         for product in self.products_list:
             
             total_sales = self.prd_sales(product)
@@ -335,17 +334,19 @@ class Seller(object):
             avg_sales = total_sales / qtrs
             price_delta = 0
             
-            # 90% price increase for more profit
-            if avg_sales > sales_target:
-                price_delta = 0.1
-            
-            # 90% discount promotion to improve sales
-            elif avg_sales < sales_bench:
-                price_delta = -0.1
-            
-            # 80% discount to clear inventory
-            elif self.prd_inventory(product) > invent_bench:
-                price_delta = -0.2
+            # adjust price 2 qtrs after market start
+            if qtrs > 2:
+                # 30% price increase for more profit
+                if avg_sales > sales_target or self.inventory[product] < invent_min:
+                    price_delta = 0.3
+                
+                # 90% discount promotion to improve sales
+                elif avg_sales < sales_bench:
+                    price_delta = -0.1
+                
+                # 80% discount to clear inventory
+                elif self.inventory[product] > invent_bench:
+                    price_delta = -0.2
             
             product.price = product.price * (1 + price_delta)
         
