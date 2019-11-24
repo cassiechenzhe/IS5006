@@ -58,8 +58,13 @@ class Seller(object):
         self.profit_history = [{key: 0 for key in products_list}]
         self.expense_history = [{key: 0 for key in products_list}]
         self.sentiment_history = [{key: 1 for key in products_list}]
-        self.advert_history = []
-        self.promo_history = []
+        
+        self.advert_history = [{key: GoogleAds.ADVERT_BASIC for key in products_list}]
+        self.promo_history = [{key: 1 for key in products_list}]
+        
+        self.total_revenue = []
+        self.total_expense = []
+        self.total_profit = []
 
         # qtr number
         self.qtr = 0
@@ -113,11 +118,11 @@ class Seller(object):
 
         self.lock.release()
          
-        print('\n\nSeller: ', self.name)
-        print('Sales in previous quarter:', self.my_sales(True))
-        print('Revenue in previous quarter:', self.my_revenue(True))
-        print('Expenses in previous quarter:', self.my_expenses(True))
-        print('Profit in previous quarter:', self.my_profit(True))
+#        print('\n\nSeller: ', self.name)
+#        print('Sales in previous quarter:', self.my_sales(True))
+#        print('Revenue in previous quarter:', self.my_revenue(True))
+#        print('Expenses in previous quarter:', self.my_expenses(True))
+#        print('Profit in previous quarter:', self.my_profit(True))
                
         self.record_metric()
 
@@ -153,6 +158,10 @@ class Seller(object):
         self.advert_history.append(self.advert_type)
         self.promo_history.append(self.promo_effec)
         
+        self.total_revenue.append(sum(revenue.values()))
+        self.total_expense.append(sum(expense.values()))
+        self.total_profit.append(sum(profit.values()))
+        
         self.item_sold.fromkeys(self.item_sold, 0)
         self.expense.fromkeys(self.expense, 0)
         self.advert_type.fromkeys(self.advert_type, GoogleAds.ADVERT_BASIC)
@@ -168,11 +177,11 @@ class Seller(object):
         """
         if latest_only:
             revenue = self.revenue_history[-1]
-            total_revenue = sum(revenue.values())
+            sum_revenue = sum(revenue.values())
         else:
-            total_revenue = sum(sum(revenue.values()) for revenue in self.revenue_history)
+            sum_revenue = sum(sum(revenue.values()) for revenue in self.revenue_history)
 
-        return total_revenue
+        return sum_revenue
 
     def my_expenses(self, latest_only=False):
         """
@@ -290,7 +299,7 @@ class Seller(object):
             
             promo_effet = GoogleAds.user_coverage(product)
             
-            if promo_effet > 0.5 and sales < ads_target_sales:
+            if promo_effet > 0.2 and sales < ads_target_sales:
                 ads_type = GoogleAds.ADVERT_TARGETED
  
             # scale = budget/ads price, round down to integer

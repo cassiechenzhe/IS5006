@@ -26,7 +26,7 @@ def update_sheet(sellers_list):
     record sales, revenue, profit in google spreadsheet
     """
     coln_list = ['Seller', 'QTR', 'Product', 'Sales', 'Revenue', 'Expense',
-                 'Profit', 'Advertisement Strategy', 'Promotion Effectiveness'
+                 'Profit', 'Advertisement Strategy', 'Promotion Effectiveness',
                  'Num of Buyers', 'Budget']
     lst = []
     
@@ -36,6 +36,9 @@ def update_sheet(sellers_list):
         revenue = seller.revenue_history
         expense = seller.expense_history
         profit = seller.profit_history
+        advert = seller.advert_history
+        promo = seller.promo_history
+        budget = seller.wallet
         
         qtr_list = len(sales)
         prd_list = seller.products_list
@@ -45,7 +48,7 @@ def update_sheet(sellers_list):
                 prd_history = [str(seller.name), int(qtr+1), str(prd.name),
                                int(sales[qtr][prd]), int(revenue[qtr][prd]),
                                int(-expense[qtr][prd]), int(profit[qtr][prd]),
-                               'BASIC', int(0.8), int(sales[qtr][prd]), int(2000)]
+                               str(advert[qtr][prd]), int(promo[qtr][prd]), int(sales[qtr][prd]), int(budget)]
                 print(prd_history)
                 lst.append(prd_history)
     
