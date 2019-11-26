@@ -38,7 +38,8 @@ def update_sheet(sellers_list):
         profit = seller.profit_history
         advert = seller.advert_history
         promo = seller.promo_history
-        budget = seller.wallet
+        buyer = seller.buyer_history
+        budget = seller.budget 
         
         qtr_list = len(sales)
         prd_list = seller.products_list
@@ -48,8 +49,8 @@ def update_sheet(sellers_list):
                 prd_history = [str(seller.name), int(qtr+1), str(prd.name),
                                int(sales[qtr][prd]), int(revenue[qtr][prd]),
                                int(-expense[qtr][prd]), int(profit[qtr][prd]),
-                               str(advert[qtr][prd]), int(promo[qtr][prd]), int(sales[qtr][prd]), int(budget)]
-                print(prd_history)
+                               str(advert[qtr][prd]), round(promo[qtr][prd],2), int(buyer[qtr][prd]), int(budget[qtr])]
+                #print(prd_history)
                 lst.append(prd_history)
     
     spreadsheet_key = '1H_MLURMBXG1jYapARtWbh_jd6T83huYAb8tSw7kUhv4'

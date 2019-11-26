@@ -14,8 +14,8 @@ class GoogleAds(object):
 
     # Define advert's price
     advert_price = {
-        ADVERT_BASIC: 50,
-        ADVERT_TARGETED: 100
+        ADVERT_BASIC: 5,
+        ADVERT_TARGETED: 10
     }
 
     # Google's internal database

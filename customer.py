@@ -95,10 +95,13 @@ class Customer(object):
                 # user checks the reviews about the product on twitter
                 tweets = numpy.asarray(Twitter.get_latest_tweets(product, 20))
                 user_sentiment = 1 if len(tweets) == 0 else (tweets == 'POSITIVE').mean()
-                #seller = Market.catalogue[product]
-                #print("This is the seller:", seller)
-                if user_sentiment >= self.tolerance:
-                    if product in current_list and random.random() < 0.5:
+                
+                # quality insentive customers may buy even sentiment is lower than tolerance but low probability
+                if user_sentiment < self.tolerance and random.random() < 0.1:
+                    purchased_products.append(product)
+                
+                elif user_sentiment >= self.tolerance:
+                    if product in current_list and random.random() < 0.3:
                         #self.buy(product)
                         purchased_products.append(product)
                     elif product not in current_list and random.random() < 0.9:

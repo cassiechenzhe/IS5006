@@ -21,21 +21,20 @@ class Market(object):
         if len(product_list) >= 2:
             discount_factor = 0.9
         else:
-            discount_factor = 1
-        
-        Market.lock.acquire()       
+            discount_factor = 1    
         
         for product in product_list:
             # get the seller for product from catalogue
             seller = Market.catalogue[product]
+            
             # call seller's sold function
-            result = seller.sold(product)
-            # deduct price from user's balance      
-            if result == 'YES':
-                buyer.deduct(product.price*discount_factor)
+            seller.sold(product)
+            
+            # deduct price from user's balance
+            buyer.deduct(product.price*discount_factor)
             # track user
-                GoogleAds.track_user_purchase(buyer, product)        
-        Market.lock.release()
+            GoogleAds.track_user_purchase(buyer, product)      
+
         return
     
 #    # return all products registered in the market

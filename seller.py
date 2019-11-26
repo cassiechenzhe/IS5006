@@ -42,32 +42,32 @@ class Seller(object):
         
         # advert_type and scale store data of advertisement strategy and users viewing ads for each product
         # expense is expense of advertisement
-        self.advert_type = {key: GoogleAds.ADVERT_BASIC for key in self.products_list}
-        self.promo_effec = {key: 1 for key in self.products_list}
+#        self.advert_type = {key: GoogleAds.ADVERT_BASIC for key in self.products_list}
+#        self.promo_effec = {key: 1 for key in self.products_list}
         
-        self.expense = {key: 1 for key in self.products_list}
+#        self.expense = {key: 1 for key in self.products_list}
 
         # inventory is a list of dictionary with product as key and inventory number as value for each quarter
         # assume initial inventory is 1000 items for each product. Eg.{iphone: 1000, airpods: 1000}
         self.inventory = {key: 500 for key in products_list}
 
         # sales, revenue, profit, expense and sentiment history start with zero for each product
-        # Eg.[{iphone: 0, airpods: 0}]
-        self.sales_history = [{key: 0 for key in products_list}]
-        self.revenue_history = [{key: 0 for key in products_list}]
-        self.profit_history = [{key: 0 for key in products_list}]
+        # Eg.[{iphone: 0, airpods: 0}] {key: 0 for key in products_list}
+        self.sales_history = []
+        self.revenue_history = []
+        self.profit_history = []
         self.expense_history = [{key: 0 for key in products_list}]
-        self.sentiment_history = [{key: 1 for key in products_list}]
-        
-        self.advert_history = [{key: GoogleAds.ADVERT_BASIC for key in products_list}]
-        self.promo_history = [{key: 1 for key in products_list}]
-        
+        self.sentiment_history = []     
+        self.advert_history = [{key: (GoogleAds.ADVERT_BASIC, 1) for key in products_list}]
+        self.promo_history = []
+        self.buyer_history = []
         self.total_revenue = []
         self.total_expense = []
         self.total_profit = []
+        self.budget = [wallet]
 
         # qtr number
-        self.qtr = 0
+#        self.qtr = 0
 
         # google sheet to store records
         #self.worksheet = sheet_api.workbook.worksheet(self.name)
@@ -97,14 +97,11 @@ class Seller(object):
         :return: available or not
         """
         self.lock.acquire()
-        if self.inventory[product] > 1:
-            self.item_sold[product] += 1
-            self.inventory[product] -= self.item_sold[product]
-            self.lock.release()
-            return 'YES'
-        else:
-            self.lock.release()
-            return 'NO'
+        self.item_sold[product] += 1    
+        self.lock.release()            
+#        self.inventory[product] -= self.item_sold[product]
+        
+        return 'YES'
             
     
     def tick(self):
@@ -123,20 +120,20 @@ class Seller(object):
         
         self.sales_history.append(self.item_sold)
         
-        self.record_metric()
+        self.item_sold = self.item_sold.fromkeys(self.item_sold, 0)
 
         self.lock.release()
-         
+        
+        self.record_metric()
 #        print('\n\nSeller: ', self.name)
 #        print('Sales in previous quarter:', self.my_sales(True))
 #        print('Revenue in previous quarter:', self.my_revenue(True))
 #        print('Expenses in previous quarter:', self.my_expenses(True))
 #        print('Profit in previous quarter:', self.my_profit(True))
-               
-
 
         # add the profit to seller's wallet
-        self.wallet += self.my_profit(True)
+        self.wallet += self.new_profit()
+        self.budget.append(self.wallet)
 
         # reset the sales counter
         #self.item_sold.fromkeys(self.item_sold, 0)
@@ -155,111 +152,144 @@ class Seller(object):
         # calculate the metrics for previous tick and add to tracker: sales, revenue and profit
         # Eg.[{iphone: 1, airpods: 2}]
         #self.sales_history.append(self.item_sold)
-        revenue = {product: sales * product.price for product, sales in self.item_sold.items()}
+        revenue = {k: v * (k.price) for k, v in self.sales_history[-1].items()}
         expense = self.expense_history[-1]
-        profit = {product: revenue - expense[product] for product, revenue in revenue.items() if product in expense}
+        profit = {k: v - expense[k] for k, v in revenue.items() if k in expense}
+        ads_scale = self.advert_history[-1]
+        promo_effect = {k: float(v/ads_scale[k][1]) for k, v in self.sales_history[-1].items() if k in ads_scale}    
+        
+        num_buyer = {k: len(set(GoogleAds.purchase_history[k])) for k in self.products_list}
         
         # append revenue and profit record to the history in a list
         # Eg.[{iphone: 1, airpods: 2}, {iphone: 2, airpods: 3}]
         self.revenue_history.append(revenue)
         self.profit_history.append(profit)
-        self.sentiment_history.append(self.user_sentiment())        
-        self.advert_history.append(self.advert_type)
-        self.promo_history.append(self.promo_effec)
+        self.sentiment_history.append(self.user_sentiment())
+        self.promo_history.append(promo_effect)
+        self.buyer_history.append(num_buyer)
         
-        self.total_revenue.append(sum(revenue.values()))
-        self.total_expense.append(sum(expense.values()))
-        self.total_profit.append(sum(profit.values()))
+#        self.total_revenue.append(sum(revenue.values()))
+#        self.total_expense.append(sum(expense.values()))
+#        self.total_profit.append(sum(profit.values()))
         
-        self.item_sold.fromkeys(self.item_sold, 0)
-        self.expense.fromkeys(self.expense, 0)
-        self.advert_type.fromkeys(self.advert_type, GoogleAds.ADVERT_BASIC)
-        self.promo_effec.fromkeys(self.promo_effec, 1)
+        #self.expense.fromkeys(self.expense, 0)
+        #self.advert_type.fromkeys(self.advert_type, GoogleAds.ADVERT_BASIC)
+        #self.promo_effec.fromkeys(self.promo_effec, 1)
         
         return
     
-    def my_revenue(self, latest_only=False):
+    def my_revenue(self):
         """
-        calculate the total revenue
-        :param latest_only: give the revenue in last tick if latest_only = True, else give the total revenue
-        :return: total revenue for all products sold (float)
-        """
-        if latest_only:
-            revenue = self.revenue_history[-1]
-            sum_revenue = sum(revenue.values())
-        else:
-            sum_revenue = sum(sum(revenue.values()) for revenue in self.revenue_history)
+        sum total revenue for all products in each time tick
+        :return: list of revenue
+        """           
+        return [sum(revenue.values()) for revenue in self.revenue_history]
 
-        return sum_revenue
-
-    def my_expenses(self, latest_only=False):
+    def my_expense(self):
         """
-        calculate the total expense
-        :param latest_only: give the expense in last tick if latest_only = True, else give the total expense
-        :return: total expense for all products (float)
+        sum total expense for all products in each time tick
+        :return: list of expense
+        """           
+        return [sum(expense.values()) for expense in self.expense_history]
+    
+    def my_profit(self):
         """
-        if latest_only:
-            expense = self.expense_history[-1]
-            total_bill = sum(expense.values())
-        else:
-            total_bill = sum(sum(expense.values()) for expense in self.expense_history)
+        sum total profit for all products in each time tick
+        :return: list of profit
+        """           
+        return [sum(profit.values()) for profit in self.profit_history]
 
-        return total_bill
-
-    def my_profit(self, latest_only=False):
+    def new_profit(self):
         """
-        calculate the total profit
-        :param latest_only: give the profit in last tick if latest_only = True, else give the total profit
+        calculate the latest total profit
         :return: total profit earned from all products sold (float)
         """
-        if latest_only:
-            profit = self.profit_history[-1]
-            total_profit = sum(profit.values())
-        else:
-            total_profit = sum(sum(profit.values()) for profit in self.profit_history)
+        return sum(self.profit_history[-1].values())
 
-        return total_profit
+  
+#    def my_revenue(self, latest_only=False):
+#        """
+#        calculate the total revenue
+#        :param latest_only: give the revenue in last tick if latest_only = True, else give the total revenue
+#        :return: total revenue for all products sold (float)
+#        """
+#        if latest_only:
+#            revenue = self.revenue_history[-1]
+#            sum_revenue = sum(revenue.values())
+#        else:
+#            sum_revenue = sum(sum(revenue.values()) for revenue in self.revenue_history)
+#
+#        return sum_revenue
+#
+#    def my_expenses(self, latest_only=False):
+#        """
+#        calculate the total expense
+#        :param latest_only: give the expense in last tick if latest_only = True, else give the total expense
+#        :return: total expense for all products (float)
+#        """
+#        if latest_only:
+#            expense = self.expense_history[-1]
+#            total_bill = sum(expense.values())
+#        else:
+#            total_bill = sum(sum(expense.values()) for expense in self.expense_history)
+#
+#        return total_bill
+#
+#    def my_profit(self, latest_only=False):
+#        """
+#        calculate the total profit
+#        :param latest_only: give the profit in last tick if latest_only = True, else give the total profit
+#        :return: total profit earned from all products sold (float)
+#        """
+#        if latest_only:
+#            profit = self.profit_history[-1]
+#            total_profit = sum(profit.values())
+#        else:
+#            total_profit = sum(sum(profit.values()) for profit in self.profit_history)
+#
+#        return total_profit
     
-    def my_sales(self, latest_only=False):
-        """
-        calculate total sales
-        :param latest_only: give the sales in last tick if latest_only = True, else give total sales
-        :return: total sales for all products
-        """
-        if latest_only:
-            sales = self.sales_history[-1]
-            total_sales = sum(sales.values())
-        else:
-            total_sales = sum(sum(sales.values()) for sales in self.sales_history)
-
-        return total_sales     
+#    def my_sales(self, latest_only=False):
+#        """
+#        calculate total sales
+#        :param latest_only: give the sales in last tick if latest_only = True, else give total sales
+#        :return: total sales for all products
+#        """
+#        if latest_only:
+#            sales = self.sales_history[-1]
+#            total_sales = sum(sales.values())
+#        else:
+#            total_sales = sum(sum(sales.values()) for sales in self.sales_history)
+#
+#        return total_sales     
     
     def user_sentiment(self):
         """
         calculates the user sentiment from tweets.
+        :return: a dictionary of sentiment value for each product as key
         """
         # initialize sentiment list with 1 for all products representing positive user_sentiment at first
-        sentiment_list = {key: 1 for key in self.products_list}
-        
+#        sentiment_list = {key: 1 for key in self.products_list}
+        sentiment_list = {}
         # get the latest tweets and calculate the percentage of positive tweets as user_sentiment
         for product in self.products_list:
-            tweets = np.asarray(Twitter.get_latest_tweets(product, 100))
+            tweets = np.asarray(Twitter.get_latest_tweets(product, 10))
             sentiment = 1 if len(tweets) == 0 else (tweets == 'POSITIVE').mean()
-            sentiment_list[product] = sentiment
+            sentiment_list.update({product: sentiment})
 
         return sentiment_list
 
-    def prd_sales(self, product, latest_only=False):
-        """
-        calculate sales of product
-        :param latest_only: give the sales in last tick if latest_only = True, else give total sales
-        :return: total sales for product
-        """
-        if latest_only:
-            prd_sales = self.sales_history[-1][product]
-        else:
-            prd_sales = sum(sales[product] for sales in self.sales_history)
-        return prd_sales
+#    def prd_sales(self, product, latest_only=False):
+#        """
+#        calculate sales of product
+#        :param latest_only: give the sales in last tick if latest_only = True, else give total sales
+#        :return: total sales for product
+#        """
+#        if latest_only:
+#            prd_sales = self.sales_history[-1][product]
+#        else:
+#            prd_sales = sum(sales[product] for sales in self.sales_history)
+#        return prd_sales
 
     def kill(self):
         """
@@ -282,37 +312,33 @@ class Seller(object):
         
         :return: none
         """
-        for product in self.products_list:
-            sales = self.prd_sales(product, True)
-            ads_target_sales = 10
+        advert_type = {}
+        expense = {}
+        ads_type = GoogleAds.ADVERT_BASIC
              
+        ads_percent = 0.5
+        max_budget = self.wallet * 0.2
+        
+        #avoid bankrupt
+        for product in self.products_list:
             revenue = self.revenue_history[-1][product]
-            ads_percent = 0.1
-            if revenue == 0:
-                ads_budget = 0.5 * self.wallet #avoid bankrupt
-            else:
-                ads_budget = ads_percent * revenue
+            ads_budget = max(ads_percent * revenue, max_budget)
+            coverage = GoogleAds.user_coverage(product)
             
-            ads_type = GoogleAds.ADVERT_BASIC
-            
-            promo_effet = GoogleAds.user_coverage(product)
-            
-            if promo_effet > 0.2 and sales < ads_target_sales:
+            if coverage > 0.5:
                 ads_type = GoogleAds.ADVERT_TARGETED
- 
-            # scale = budget/ads price, round down to integer
-            # scale = max((ads_budget // GoogleAds.advert_price[ads_type]), 1)
-            scale = max(int(ads_budget / GoogleAds.advert_price[ads_type]), 1)
+
+            scale = min(int(ads_budget / GoogleAds.advert_price[ads_type]), 500)
                         
-            # perform the actions and view the expense
-            self.advert_type[product] = ads_type
-            #self.scale[product] = scale
-            self.promo_effec[product] = min(0, float(sales/scale))
-            self.expense[product] = GoogleAds.post_advertisement(self, product, ads_type, scale)
+        # perform the actions and view the expense
+            advert_type.update({product: (ads_type, scale)})
+        
+            expense.update({product: GoogleAds.post_advertisement(self, product, ads_type, scale)})
         
         # store expense data
-        self.expense_history.append(self.expense)
-        
+        self.advert_history.append(advert_type)
+        self.expense_history.append(expense)
+               
         return
     
     def adjust_price(self):
@@ -329,7 +355,7 @@ class Seller(object):
         sales_bench = 2
         for product in self.products_list:
             
-            total_sales = self.prd_sales(product)
+            total_sales = self.sales_history[-1][product]
             qtrs = len(self.sales_history)
             avg_sales = total_sales / qtrs
             price_delta = 0
@@ -348,6 +374,6 @@ class Seller(object):
                 elif self.inventory[product] > invent_bench:
                     price_delta = -0.2
             
-            product.price = product.price * (1 + price_delta)
+            product.price = int(product.price * (1 + price_delta))
         
         return
