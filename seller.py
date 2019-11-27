@@ -49,7 +49,7 @@ class Seller(object):
 
         # inventory is a list of dictionary with product as key and inventory number as value for each quarter
         # assume initial inventory is 1000 items for each product. Eg.{iphone: 1000, airpods: 1000}
-        self.inventory = {key: 500 for key in products_list}
+        self.inventory = {key: 1000 for key in products_list}
 
         # sales, revenue, profit, expense and sentiment history start with zero for each product
         # Eg.[{iphone: 0, airpods: 0}] {key: 0 for key in products_list}
@@ -95,13 +95,16 @@ class Seller(object):
         Add to the database when an item is sold
         :param product: product sold by the seller
         :return: available or not
-        """
-        self.lock.acquire()
-        self.item_sold[product] += 1    
-        self.lock.release()            
-#        self.inventory[product] -= self.item_sold[product]
+        """      
+        if self.inventory[product] <= 0:
+            return False
+        else:
+            self.lock.acquire()
+            self.item_sold[product] += 1
+            self.inventory[product] -= 1
+            self.lock.release()
         
-        return 'YES'
+        return True
             
     
     def tick(self):
@@ -109,33 +112,37 @@ class Seller(object):
         Actions to do in one time step in the simulation world:
         1. record sales history of number of items sold for each product
         2. calculate the metrics for previous tick and add to tracker, like revenue, expense, profit, user sentiment
-        3. decide advertising type in next step by calling CEO function
+        3. adjust price based on sales and inventory
+        4. decide advertising type by CEO
         :return: none
         """
-        # lock time to avoid actions overlap
+        # lock time to avoid shared variable being changed by other threads
         self.lock.acquire()
-
-        # record timestamp/quarter number
-        #self.qtr += 1
         
+        # record sales history
         self.sales_history.append(self.item_sold)
-        
+        # reset the sales counter      
         self.item_sold = self.item_sold.fromkeys(self.item_sold, 0)
 
+        # release lock
         self.lock.release()
         
+        # record metrics of revenue, profit
         self.record_metric()
+
+#        printing results  
 #        print('\n\nSeller: ', self.name)
-#        print('Sales in previous quarter:', self.my_sales(True))
-#        print('Revenue in previous quarter:', self.my_revenue(True))
-#        print('Expenses in previous quarter:', self.my_expenses(True))
-#        print('Profit in previous quarter:', self.my_profit(True))
+#        print('Revenue in previous quarter:', self.my_revenue())
+#        print('Expenses in previous quarter:', self.my_expenses())
+#        print('Profit in previous quarter:', self.my_profit())
 
         # add the profit to seller's wallet
         self.wallet += self.new_profit()
+        
+        # record current money in wallet as budget for next cycle
         self.budget.append(self.wallet)
 
-        # reset the sales counter
+
         #self.item_sold.fromkeys(self.item_sold, 0)
         
         # adjust price for next time step
@@ -148,10 +155,15 @@ class Seller(object):
         return
 
     def record_metric(self):
-        
-        # calculate the metrics for previous tick and add to tracker: sales, revenue and profit
-        # Eg.[{iphone: 1, airpods: 2}]
-        #self.sales_history.append(self.item_sold)
+        """
+        calculate the metrics (revenue, profit, user_sentiment, promotion effectiveness and number of buyers) for previous tick and add to tracker
+            revenue = sales * price
+            profit = revenue - expense
+            user_sentiment is obtained from function "self.user_sentiment()"
+            prmotion effectiveness = sales/ads scale
+            number of buyers is obtained from GoogleAds purchase history
+        :return: none
+        """
         revenue = {k: v * (k.price) for k, v in self.sales_history[-1].items()}
         expense = self.expense_history[-1]
         profit = {k: v - expense[k] for k, v in revenue.items() if k in expense}
@@ -167,14 +179,6 @@ class Seller(object):
         self.sentiment_history.append(self.user_sentiment())
         self.promo_history.append(promo_effect)
         self.buyer_history.append(num_buyer)
-        
-#        self.total_revenue.append(sum(revenue.values()))
-#        self.total_expense.append(sum(expense.values()))
-#        self.total_profit.append(sum(profit.values()))
-        
-        #self.expense.fromkeys(self.expense, 0)
-        #self.advert_type.fromkeys(self.advert_type, GoogleAds.ADVERT_BASIC)
-        #self.promo_effec.fromkeys(self.promo_effec, 1)
         
         return
     
@@ -220,48 +224,6 @@ class Seller(object):
 #            sum_revenue = sum(sum(revenue.values()) for revenue in self.revenue_history)
 #
 #        return sum_revenue
-#
-#    def my_expenses(self, latest_only=False):
-#        """
-#        calculate the total expense
-#        :param latest_only: give the expense in last tick if latest_only = True, else give the total expense
-#        :return: total expense for all products (float)
-#        """
-#        if latest_only:
-#            expense = self.expense_history[-1]
-#            total_bill = sum(expense.values())
-#        else:
-#            total_bill = sum(sum(expense.values()) for expense in self.expense_history)
-#
-#        return total_bill
-#
-#    def my_profit(self, latest_only=False):
-#        """
-#        calculate the total profit
-#        :param latest_only: give the profit in last tick if latest_only = True, else give the total profit
-#        :return: total profit earned from all products sold (float)
-#        """
-#        if latest_only:
-#            profit = self.profit_history[-1]
-#            total_profit = sum(profit.values())
-#        else:
-#            total_profit = sum(sum(profit.values()) for profit in self.profit_history)
-#
-#        return total_profit
-    
-#    def my_sales(self, latest_only=False):
-#        """
-#        calculate total sales
-#        :param latest_only: give the sales in last tick if latest_only = True, else give total sales
-#        :return: total sales for all products
-#        """
-#        if latest_only:
-#            sales = self.sales_history[-1]
-#            total_sales = sum(sales.values())
-#        else:
-#            total_sales = sum(sum(sales.values()) for sales in self.sales_history)
-#
-#        return total_sales     
     
     def user_sentiment(self):
         """
@@ -279,18 +241,6 @@ class Seller(object):
 
         return sentiment_list
 
-#    def prd_sales(self, product, latest_only=False):
-#        """
-#        calculate sales of product
-#        :param latest_only: give the sales in last tick if latest_only = True, else give total sales
-#        :return: total sales for product
-#        """
-#        if latest_only:
-#            prd_sales = self.sales_history[-1][product]
-#        else:
-#            prd_sales = sum(sales[product] for sales in self.sales_history)
-#        return prd_sales
-
     def kill(self):
         """
         to stop the seller thread
@@ -304,38 +254,46 @@ class Seller(object):
     # Cognition system that decides what to do next.
     def CEO(self):
         """
-        Choose advertisement types and scales based on sales, revenue and user_coverage.
-        If recent sales is above sales_target or user_coverage is less than target, choose basic ads, otherwise choose targeted ads.
+        Choose advertisement types and scales for each product based on revenue and user_coverage.
+        If user_coverage is less than target, choose basic ads, otherwise choose targeted ads.
         
-        Set total advertisement budget less than a percentage of revenue, to avoid bankrupt
+        Set total advertisement budget less than a percentage of revenue or wallet money, to avoid bankrupt
         Scale (number of ads to put) equals to budget divided by advert price.
         
         :return: none
         """
+        # initilize empty variable
         advert_type = {}
         expense = {}
         ads_type = GoogleAds.ADVERT_BASIC
-             
+        
+        # set advertising budget as a percentage of total revenue or total money in wallet
         ads_percent = 0.5
         max_budget = self.wallet * 0.2
         
-        #avoid bankrupt
+        # decide individual advertising strategy for each product
         for product in self.products_list:
+            
+            # get the latest revenue to decide ads budget
             revenue = self.revenue_history[-1][product]
+            
+            #avoid bankrupt by setting advertisment budget
             ads_budget = max(ads_percent * revenue, max_budget)
             coverage = GoogleAds.user_coverage(product)
             
+            # check if user_coverage is more than half of GoogleAds users
             if coverage > 0.5:
                 ads_type = GoogleAds.ADVERT_TARGETED
 
             scale = min(int(ads_budget / GoogleAds.advert_price[ads_type]), 500)
                         
-        # perform the actions and view the expense
+            # perform the actions and view the expense
             advert_type.update({product: (ads_type, scale)})
-        
+            
+            # obtain expense from GoogleAds
             expense.update({product: GoogleAds.post_advertisement(self, product, ads_type, scale)})
         
-        # store expense data
+        # store advertisement types and scales, and expense history
         self.advert_history.append(advert_type)
         self.expense_history.append(expense)
                
@@ -344,15 +302,16 @@ class Seller(object):
     def adjust_price(self):
         """
         This function is for seller to increase or reduce price based on historical data:
-        1. increase price when average sales is above target.
-        2. reduce price when inventory is more than benchmark for a time period
-        or average sales volume is lower than benchmark.
+        1. increase price when average sales is above target
+        2. reduce price when inventory is more than benchmark
+        or average sales volume is lower than benchmark
         :return: none
         """
-        invent_bench = 800
-        invent_min = 100
+        invent_bench = 200
+        invent_min = 10
         sales_target = 200
         sales_bench = 2
+        
         for product in self.products_list:
             
             total_sales = self.sales_history[-1][product]
@@ -374,6 +333,14 @@ class Seller(object):
                 elif self.inventory[product] > invent_bench:
                     price_delta = -0.2
             
+            # calculate new price after adjustment
             product.price = int(product.price * (1 + price_delta))
+        
+        return
+    
+    def order_inventory(self):
+        """
+        make an order for new supply added, if inventory is zero
+        """
         
         return

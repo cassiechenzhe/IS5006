@@ -18,12 +18,10 @@ client = gspread.authorize(credentials)
 #update your email address that has google credentials
 #workbook.share('a0091882w.receiver@gmail.com', perm_type='user', role='owner')
 
-#lst = [['apple', 1, 'iphone', 20, 30, 10, 20, 'BASIC'], ['apple', 2, 'airpods', 30, 30, 10, 20, 'BASIC'], 
-#       ['apple', 3, 'iphone', 40, 30, 10, 20, 'TARGETED'], ['apple', 4, 'phonecase', 20, 30, 10, 20, 'BASIC']]
-
 def update_sheet(sellers_list):
     """
     record sales, revenue, profit in google spreadsheet
+    return: dataframe of history record
     """
     coln_list = ['Seller', 'QTR', 'Product', 'Sales', 'Revenue', 'Expense',
                  'Profit', 'Advertisement Strategy', 'Promotion Effectiveness',
@@ -48,14 +46,17 @@ def update_sheet(sellers_list):
             for prd in prd_list:
                 prd_history = [str(seller.name), int(qtr+1), str(prd.name),
                                int(sales[qtr][prd]), int(revenue[qtr][prd]),
-                               int(-expense[qtr][prd]), int(profit[qtr][prd]),
+                               int(expense[qtr][prd]), int(profit[qtr][prd]),
                                str(advert[qtr][prd]), round(promo[qtr][prd],2), int(buyer[qtr][prd]), int(budget[qtr])]
-                #print(prd_history)
+                
                 lst.append(prd_history)
     
+    # spread sheet address
     spreadsheet_key = '1H_MLURMBXG1jYapARtWbh_jd6T83huYAb8tSw7kUhv4'
+    # workbook name
     wks_name = 'Master'
     df = pd.DataFrame(lst, columns = coln_list)
+    # write dataframe to spread sheet
     d2g.upload(df, spreadsheet_key, wks_name, credentials=credentials, row_names=True)
     
     return df

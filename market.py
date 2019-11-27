@@ -17,25 +17,26 @@ class Market(object):
     # when a user buys a product, increment the seller's sales
     @staticmethod
     def buy(buyer, product_list):
-        # give discount for more than 2 products
+        # give discount for more than 2 products      
         if len(product_list) >= 2:
             discount_factor = 0.9
         else:
-            discount_factor = 1    
+            discount_factor = 1   
         
         for product in product_list:
             # get the seller for product from catalogue
             seller = Market.catalogue[product]
             
-            # call seller's sold function
-            seller.sold(product)
-            
-            # deduct price from user's balance
-            buyer.deduct(product.price*discount_factor)
-            # track user
-            GoogleAds.track_user_purchase(buyer, product)      
+            # call seller's sold function which returns True if product is available; otherwise transaction fails
+            if seller.sold(product):    
+                # deduct price from user's balance
+                buyer.deduct(product.price*discount_factor)
+                # track user
+                GoogleAds.track_user_purchase(buyer, product)
+            else:
+                return False
 
-        return
+        return True
     
 #    # return all products registered in the market
     @staticmethod

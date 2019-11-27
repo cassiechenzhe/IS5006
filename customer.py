@@ -63,11 +63,10 @@ class Customer(object):
             return
 
         # purchase the product from market
-        Market.buy(self, product_list)
-
-        # add product to the owned products list
-        for product in product_list:
-            self.owned_products.append(product)
+        if Market.buy(self, product_list):
+            # add product to the owned products list
+            for product in product_list:
+                self.owned_products.append(product)
 
     # money is deducted from user's wallet when purchase is completed
     def deduct(self, money):
@@ -96,7 +95,7 @@ class Customer(object):
                 tweets = numpy.asarray(Twitter.get_latest_tweets(product, 20))
                 user_sentiment = 1 if len(tweets) == 0 else (tweets == 'POSITIVE').mean()
                 
-                # quality insentive customers may buy even sentiment is lower than tolerance but low probability
+                # quality insentive customers still buy if sentiment is lower than tolerance but low probability
                 if user_sentiment < self.tolerance and random.random() < 0.1:
                     purchased_products.append(product)
                 
