@@ -61,16 +61,19 @@ class GoogleAds(object):
 
     @staticmethod
     def register_user(user):
+        # register user in GoogleAds database
         GoogleAds.lock.acquire()
         GoogleAds.users.append(user)
         GoogleAds.lock.release()
 
     @staticmethod
     def track_user_purchase(user, product):
+        # track user purchase history of each product
         GoogleAds.lock.acquire()
         GoogleAds.purchase_history[product].append(user)
         GoogleAds.lock.release()
 
     @staticmethod
     def user_coverage(product):
+        # calculate user coverage as number of buyers divided by number of total ads viewers
         return len(set(GoogleAds.purchase_history[product])) / len(GoogleAds.users)

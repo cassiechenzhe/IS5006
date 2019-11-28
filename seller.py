@@ -1,8 +1,6 @@
 import time
 from threading import Lock, Thread
-
 import numpy as np
-import pandas as pd
 
 from constants import tick_time
 from google_ads import GoogleAds
@@ -30,22 +28,11 @@ class Seller(object):
         if products_list is not None:
             for product in products_list:
                 Market.register_seller(self, product)
-        
-        # establish relationships between products
-        # relate_factor = pd.DataFrame(index=products_list, columns=products_list)
-        
-        
+
         # metrics tracker:
         # item_sold is total number of items of each product sold by seller.
         # A dictionary with each product as key and value is no. of items sold.eg.{iphone: 0, airpods: 0}
         self.item_sold = {key: 0 for key in products_list}
-        
-        # advert_type and scale store data of advertisement strategy and users viewing ads for each product
-        # expense is expense of advertisement
-#        self.advert_type = {key: GoogleAds.ADVERT_BASIC for key in self.products_list}
-#        self.promo_effec = {key: 1 for key in self.products_list}
-        
-#        self.expense = {key: 1 for key in self.products_list}
 
         # inventory is a list of dictionary with product as key and inventory number as value for each quarter
         # assume initial inventory is 1000 items for each product. Eg.{iphone: 1000, airpods: 1000}
@@ -57,7 +44,8 @@ class Seller(object):
         self.revenue_history = []
         self.profit_history = []
         self.expense_history = [{key: 0 for key in products_list}]
-        self.sentiment_history = []     
+        self.sentiment_history = []
+        # advert_type and scale store data of advertisement strategy and users viewing ads for each product
         self.advert_history = [{key: (GoogleAds.ADVERT_BASIC, 1) for key in products_list}]
         self.promo_history = []
         self.buyer_history = []
@@ -65,12 +53,6 @@ class Seller(object):
         self.total_expense = []
         self.total_profit = []
         self.budget = [wallet]
-
-        # qtr number
-#        self.qtr = 0
-
-        # google sheet to store records
-        #self.worksheet = sheet_api.workbook.worksheet(self.name)
 
         # Flag for thread
         self.STOP = False
@@ -105,8 +87,7 @@ class Seller(object):
             self.lock.release()
         
         return True
-            
-    
+
     def tick(self):
         """
         Actions to do in one time step in the simulation world:
@@ -130,7 +111,7 @@ class Seller(object):
         # record metrics of revenue, profit
         self.record_metric()
 
-#        printing results  
+#        printing results for debugging
 #        print('\n\nSeller: ', self.name)
 #        print('Revenue in previous quarter:', self.my_revenue())
 #        print('Expenses in previous quarter:', self.my_expenses())
@@ -141,16 +122,14 @@ class Seller(object):
         
         # record current money in wallet as budget for next cycle
         self.budget.append(self.wallet)
-
-
-        #self.item_sold.fromkeys(self.item_sold, 0)
         
         # adjust price for next time step
         self.adjust_price()
 
         # choose advertisement strategy for next time step
         self.CEO()
-        
+
+        # printing results for debugging
         #print('\nStrategy for next quarter \nProduct: {}, Advert Type: {}, scale: {}\n\n'.format(product.name, advert_type[product], scale[product]) for product in self.products_list)
         return
 
@@ -210,7 +189,7 @@ class Seller(object):
         """
         return sum(self.profit_history[-1].values())
 
-  
+#    another method to get latest revenue (not used here in model)
 #    def my_revenue(self, latest_only=False):
 #        """
 #        calculate the total revenue
@@ -337,10 +316,4 @@ class Seller(object):
             product.price = int(product.price * (1 + price_delta))
         
         return
-    
-    def order_inventory(self):
-        """
-        make an order for new supply added, if inventory is zero
-        """
-        
-        return
+

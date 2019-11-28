@@ -27,6 +27,7 @@ class Customer(object):
         # the total product list, same as seller side
         self.products_list = products_list
 
+        # product correlation factor matrix
         self.products_matrix = \
                   [[1, 0.7, 0.3, 0.6, 0.7, 0.5, 0.9, 0.7, 0.3],
                    [0.7, 1, 0.4, 0.2, 0.5, 0.7, 0.9, 0.2, 0.1],
@@ -51,12 +52,21 @@ class Customer(object):
 
     # View the advert to this consumer. The advert is appended to the ad_space
     def view_advert(self, product):
+        """
+        Add product into advertisement space to customer; lock thread to avoid other thread changing ad_space
+        :param product: product class
+        :return: none
+        """
         self.lock.acquire()
         self.ad_space.append(product)
         self.lock.release()
 
-    # Consumer decided to buy a 'product'.
     def buy(self, product_list):
+        """
+        Consumer decided to buy a 'product'.
+        :param product_list: list of products
+        :return: none
+        """
         # if not enough money in wallet, don't proceed
         total_price = sum(product.price for product in product_list)
         if self.wallet < total_price:
@@ -68,22 +78,37 @@ class Customer(object):
             for product in product_list:
                 self.owned_products.append(product)
 
-    # money is deducted from user's wallet when purchase is completed
     def deduct(self, money):
+        """
+        money is deducted from user's wallet when purchase is completed
+        :param money: money, i.e product price
+        :return: none
+        """
         self.wallet -= money
 
-    # User expresses his sentiment about the product on twitter
     def tweet(self, product, sentiment):
+        """
+        User expresses his sentiment about the product on twitter
+        :param product: product
+        :param sentiment: user sentiment, positive or negative
+        :return: none
+        """
         Twitter.post(self, product, sentiment)
 
-    # Loop function to keep the simulation going
     def loop(self):
+        """
+        Loop function to keep the simulation going
+        :return: none
+        """
         while not self.STOP:
             self.tick()
             time.sleep(tick_time)
 
-    # one timestep in the simulation world
     def tick(self):
+        """
+        one timestep in the simulation world
+        :return: none
+        """
         self.lock.acquire()
         
         current_list = self.owned_products
@@ -91,6 +116,7 @@ class Customer(object):
         # user looks at all the adverts in his ad_space
         if len(self.ad_space) > 0:
             for product in self.ad_space:
+
                 # user checks the reviews about the product on twitter
                 tweets = numpy.asarray(Twitter.get_latest_tweets(product, 20))
                 user_sentiment = 1 if len(tweets) == 0 else (tweets == 'POSITIVE').mean()
@@ -129,8 +155,11 @@ class Customer(object):
             # tweet sent
             self.tweet(product, sentiment)
 
-    # set the flag to True and wait for thread to join
     def kill(self):
+        """
+        set the flag to True and wait for thread to join
+        :return: none
+        """
         self.STOP = True
         self.thread.join(timeout=0)
 

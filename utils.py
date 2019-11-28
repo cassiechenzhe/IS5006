@@ -3,6 +3,11 @@ import numpy
 
 
 def plot(seller):
+    """
+    plot graphs of metrics such as revenue and expense
+    :param seller: seller class
+    :return: none
+    """
     plt.figure(figsize=(6, 9))
     plt.subplots_adjust(hspace=0.5)
     plt.subplot(311)
@@ -20,8 +25,3 @@ def plot(seller):
     plt.xticks(range(len(seller.my_revenue())))
     plt.legend()
 
-#    plt.subplot(313)
-#    plt.plot(seller.sentiment_history, label='User Sentiment')
-#    plt.xticks(range(len(seller.revenue_history)))
-#    plt.legend()
-#    plt.show()
